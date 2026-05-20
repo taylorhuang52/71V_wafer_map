@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wafer Map Generator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;700;800&display=swap');
+
+  :root {
+    --bg: #0b0e17;
+    --surface: #121620;
+    --surface2: #1a2030;
+    --border: #2a3448;
+    --accent: #00d4aa;
+    --accent2: #4facfe;
+    --text: #c8d6ef;
+    --text-dim: #5a6a8a;
+    --mono: 'JetBrains Mono', monospace;
+    --display: 'Syne', sans-serif;
+
+    /* Bin colors */
+    --bin1: #00d4aa;
+    --bin2: #ffd700;
+    --bin3: #ff6b35;
+    --bin4: #e040fb;
+    --bin5: #ff4444;
+    --bin6: #4facfe;
+    --bin7: #aef359;
+    --bin8: #ff9800;
+    --bin9: #f06292;
+    --bin-other: #888;
+    --dot: #1e2840;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo-mark {
+    width: 40px; height: 40px;
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 14px;
+    color: var(--accent);
+    letter-spacing: -1px;
+    flex-shrink: 0;
+  }
+
+  h1 {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 22px;
+    color: #fff;
+    letter-spacing: -0.5px;
+  }
+
+  h1 span { color: var(--accent); }
+
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: var(--surface);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .upload-zone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 0%, rgba(0,212,170,0.05) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .upload-zone:hover, .upload-zone.dragover {
+    border-color: var(--accent);
+    background: rgba(0,212,170,0.04);
+  }
+
+  .upload-zone input[type=file] {
+    position: absolute; inset: 0;
+    opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+
+  .upload-icon {
+    font-size: 36px;
+    margin-bottom: 12px;
+    display: block;
+  }
+
+  .upload-zone p {
+    font-family: var(--display);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .upload-zone small {
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+
+  .file-name {
+    display: none;
+    margin-top: 12px;
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .controls {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .btn {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 14px;
+    padding: 10px 24px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    letter-spacing: 0.3px;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+  }
+  .btn-primary:hover { background: #00f0c0; transform: translateY(-1px); }
+  .btn-primary:disabled { background: var(--border); color: var(--text-dim); cursor: not-allowed; transform: none; }
+
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  #status {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-left: auto;
+  }
+  #status.error { color: #ff6b6b; }
+  #status.success { color: var(--accent); }
+
+  /* Main output layout */
+  #output {
+    display: none;
+    margin-top: 28px;
+    gap: 24px;
+    grid-template-columns: 1fr 360px;
+  }
+  #output.visible { display: grid; }
+
+  @media (max-width: 900px) {
+    #output.visible { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface2);
+  }
+
+  .panel-title {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .panel-body { padding: 20px; }
+
+  /* Wafer map canvas */
+  #map-wrap {
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    overflow-x: auto;
+  }
+
+  #wafer-canvas {
+    display: block;
+  }
+
+  /* Text output */
+  #txt-output {
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.5;
+    color: #a0b4cc;
+    white-space: pre;
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: 600px;
+    padding: 16px;
+    background: #080c14;
+    border-radius: 8px;
+  }
+
+  /* Info table */
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .info-item {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+  }
+
+  .info-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+
+  .info-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    font-family: var(--display);
+  }
+
+  /* Legend */
+  .legend { display: flex; flex-direction: column; gap: 6px; }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+  }
+
+  .legend-dot {
+    width: 14px; height: 14px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  .legend-label { flex: 1; color: var(--text); }
+  .legend-count {
+    color: var(--text-dim);
+    font-size: 11px;
+    min-width: 50px;
+    text-align: right;
+  }
+  .legend-pct { color: var(--accent); font-size: 11px; min-width: 44px; text-align: right; }
+
+  /* Cell size control */
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+  }
+  input[type=range] {
+    flex: 1;
+    accent-color: var(--accent);
+  }
+  .slider-val {
+    font-weight: 600;
+    color: var(--accent);
+    min-width: 28px;
+    text-align: right;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark">WM</div>
+  <h1>Wafer <span>Map</span> Generator</h1>
+</header>
+
+<!-- Upload -->
+<div class="upload-zone" id="dropzone">
+  <input type="file" id="file-input" accept=".xlsx">
+  <span class="upload-icon">⬆</span>
+  <p>Drop .xlsx file here or click to browse</p>
+  <small>Supports wafer test data with Serial#, Bin#, XAdr, YAdr columns</small>
+  <div class="file-name" id="file-name"></div>
+</div>
+
+<div class="controls">
+  <button class="btn btn-primary" id="btn-generate" disabled>Generate Map</button>
+  <button class="btn btn-secondary" id="btn-download" disabled>Download .txt</button>
+  <span id="status">Select an .xlsx file to begin</span>
+</div>
+
+<!-- Output -->
+<div id="output">
+  <!-- Left: wafer map visual -->
+  <div>
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Wafer Map Visual</span>
+        <span id="wafer-id-label" style="font-size:12px; color: var(--accent); font-weight:600;"></span>
+      </div>
+      <div class="panel-body" style="padding:16px 20px 8px;">
+        <div class="slider-row">
+          <span>Cell size</span>
+          <input type="range" id="cell-size" min="8" max="32" value="16" step="2">
+          <span class="slider-val" id="cell-size-val">16</span>
+        </div>
+      </div>
+      <div id="map-wrap">
+        <canvas id="wafer-canvas"></canvas>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:16px;">
+      <div class="panel-header"><span class="panel-title">Text Output Preview</span></div>
+      <pre id="txt-output"></pre>
+    </div>
+  </div>
+
+  <!-- Right: info + legend -->
+  <div style="display:flex; flex-direction:column; gap:16px;">
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Wafer Info</span></div>
+      <div class="panel-body">
+        <div class="info-grid" id="info-grid"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Bin Legend</span></div>
+      <div class="panel-body">
+        <div class="legend" id="legend"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// ---- Config ----
+const BIN_COLORS = {
+  1: '#00d4aa',
+  2: '#ffd700',
+  3: '#ff6b35',
+  4: '#e040fb',
+  5: '#ff4444',
+  6: '#4facfe',
+  7: '#aef359',
+  8: '#ff9800',
+  9: '#f06292',
+};
+const BIN_LABELS = {
+  1: 'Bin 1 – Pass',
+  2: 'Bin 2',
+  3: 'Bin 3',
+  4: 'Bin 4',
+  5: 'Bin 5',
+  6: 'Bin 6',
+  7: 'Bin 7',
+  8: 'Bin 8',
+  9: 'Bin 9',
+};
+function binColor(b) {
+  return BIN_COLORS[b] || '#888888';
+}
+
+// ---- State ----
+let parsedData = null;
+let txtContent = '';
+
+// ---- DOM refs ----
+const fileInput = document.getElementById('file-input');
+const dropzone  = document.getElementById('dropzone');
+const fileNameEl= document.getElementById('file-name');
+const btnGen    = document.getElementById('btn-generate');
+const btnDL     = document.getElementById('btn-download');
+const statusEl  = document.getElementById('status');
+const outputDiv = document.getElementById('output');
+const canvas    = document.getElementById('wafer-canvas');
+const ctx       = canvas.getContext('2d');
+const txtOut    = document.getElementById('txt-output');
+const infoGrid  = document.getElementById('info-grid');
+const legendEl  = document.getElementById('legend');
+const cellSizeInput = document.getElementById('cell-size');
+const cellSizeVal   = document.getElementById('cell-size-val');
+const waferIdLabel  = document.getElementById('wafer-id-label');
+
+// ---- Upload handling ----
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+cellSizeInput.addEventListener('input', () => {
+  cellSizeVal.textContent = cellSizeInput.value;
+  if (parsedData) drawMap(parsedData, parseInt(cellSizeInput.value));
+});
+
+function setStatus(msg, type='') {
+  statusEl.textContent = msg;
+  statusEl.className = type;
+}
+
+function handleFile(file) {
+  if (!file.name.endsWith('.xlsx')) {
+    setStatus('Error: Only .xlsx files supported', 'error');
+    return;
+  }
+  fileNameEl.textContent = '📄 ' + file.name;
+  fileNameEl.style.display = 'block';
+  setStatus('Reading file…');
+  btnGen.disabled = true;
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      parsedData = parseXlsx(e.target.result, file.name);
+      setStatus(`✓ Loaded ${parsedData.dies.length} dies from ${file.name}`, 'success');
+      btnGen.disabled = false;
+    } catch(err) {
+      setStatus('Parse error: ' + err.message, 'error');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ---- Parse XLSX ----
+function parseXlsx(buffer, fileName) {
+  const wb = XLSX.read(buffer, { type: 'array' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+
+  // Find WaferID row
+  let waferId = '';
+  for (let i = 0; i < Math.min(10, rows.length); i++) {
+    const cell = String(rows[i][0] || '');
+    if (cell.includes('WaferID')) {
+      waferId = cell.replace('WaferID :', '').replace('WaferID:', '').trim();
+      break;
+    }
+  }
+  if (!waferId) {
+    // fallback: use filename
+    waferId = fileName.replace('.xlsx', '').replace(/-/g, '.');
+  }
+
+  // Find header row containing Serial#, Bin#, XAdr, YAdr
+  let headerIdx = -1, cols = {};
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i].map(c => String(c || '').trim());
+    if (r.includes('Serial#') && r.includes('Bin#') && r.includes('XAdr') && r.includes('YAdr')) {
+      headerIdx = i;
+      r.forEach((name, ci) => { cols[name] = ci; });
+      break;
+    }
+  }
+  if (headerIdx === -1) throw new Error('Cannot find header row with Serial#, Bin#, XAdr, YAdr');
+
+  const dies = [];
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r || r[cols['Serial#']] == null) continue;
+    const bin  = parseInt(r[cols['Bin#']]);
+    const xadr = parseInt(r[cols['XAdr']]);
+    const yadr = parseInt(r[cols['YAdr']]);
+    if (isNaN(bin) || isNaN(xadr) || isNaN(yadr)) continue;
+    dies.push({ bin, x: xadr, y: yadr });
+  }
+  if (!dies.length) throw new Error('No die data found');
+  return { waferId, dies };
+}
+
+// ---- Generate ----
+btnGen.addEventListener('click', () => {
+  if (!parsedData) return;
+  generate(parsedData);
+});
+
+function generate(data) {
+  const { waferId, dies } = data;
+
+  // Compute grid bounds
+  const xs = dies.map(d => d.x), ys = dies.map(d => d.y);
+  const xmin = Math.min(...xs), xmax = Math.max(...xs);
+  const ymin = Math.min(...ys), ymax = Math.max(...ys);
+  const colCnt = xmax - xmin + 1;
+  const rowCnt = ymax - ymin + 1;
+
+  // Build lookup
+  const grid = {};
+  dies.forEach(d => { grid[`${d.x},${d.y}`] = d.bin; });
+
+  // Build bin counts
+  const binCounts = {};
+  dies.forEach(d => { binCounts[d.bin] = (binCounts[d.bin] || 0) + 1; });
+  const passCnt = binCounts[1] || 0;
+
+  // Build MAP rows (data rows only, total rows = rowCnt + 2 with padding top/bottom)
+  const mapRows = [];
+  // Row 1: all dots (padding)
+  const dotRow = '.'.repeat(colCnt + 2);
+  mapRows.push(dotRow);
+  for (let y = ymin; y <= ymax; y++) {
+    let row = '';
+    for (let x = xmin; x <= xmax; x++) {
+      const key = `${x},${y}`;
+      row += (key in grid) ? String(grid[key]) : '.';
+    }
+    // Pad: the example has same-width rows with dots on edges already from the data
+    mapRows.push(row);
+  }
+  mapRows.push(dotRow);
+
+  // --- Build header lines (copy from output_example format, lines 1-28) ---
+  // We replicate the exact format with real values where possible
+  const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'/');
+  const lotMea = waferId.replace(/-/, '.');
+
+  const headerLines = [
+    `ROUTST 0`,
+    `VERSID 3.2`,
+    `TIMEST ${dateStr}`,
+    `MAPTYP e`,
+    `DESIGN L9285S`,
+    `LOTMEA ${lotMea}`,
+    `REFCNT 2`,
+    `REFBIN X`,
+    `REFTP1 m`,
+    `REFPX1 37`,
+    `REFPY1 22`,
+    `REFTP2 m`,
+    `REFPX2 3`,
+    `REFPY2 9`,
+    `FFROT1 0`,
+    `FNLOE1 0`,
+    `ORLOE1 3`,
+    `ROWCNT ${rowCnt}`,
+    `COLCNT ${colCnt}`,
+    `WAFDIA 200`,
+    `XDIES1 5.14`,
+    `YDIES1 5.14`,
+    `PASBIN 1`,
+    `SUMPAS ${passCnt}`,
+    `COMPRE 1`,
+    `"SKIPDI .,X "`,
+    `REMARK SPECIAL INKING`,
+    `MAPID1 ${lotMea}`,
+  ];
+
+  // Build full txt
+  const mapLines = mapRows.map((row, i) => `MAP${String(i+1).padStart(3,'0')} ${row}`);
+  txtContent = [...headerLines, ...mapLines].join('\n') + '\n';
+
+  // Show output
+  txtOut.textContent = txtContent;
+  updateInfo({ waferId, dies, binCounts, passCnt, rowCnt, colCnt });
+  updateLegend(binCounts, dies.length);
+  waferIdLabel.textContent = waferId;
+  drawMap(data, parseInt(cellSizeInput.value));
+  outputDiv.classList.add('visible');
+  btnDL.disabled = false;
+  setStatus(`✓ Map generated — ${dies.length} dies, ${rowCnt}×${colCnt} grid`, 'success');
+}
+
+// ---- Draw wafer map on canvas ----
+function drawMap(data, cellSize) {
+  const { dies } = data;
+  const xs = dies.map(d => d.x), ys = dies.map(d => d.y);
+  const xmin = Math.min(...xs), xmax = Math.max(...xs);
+  const ymin = Math.min(...ys), ymax = Math.max(...ys);
+  const cols = xmax - xmin + 1;
+  const rows = ymax - ymin + 1;
+  const pad = cellSize;
+
+  const W = cols * cellSize + pad * 2;
+  const H = rows * cellSize + pad * 2;
+  canvas.width  = W;
+  canvas.height = H;
+
+  // Background
+  ctx.fillStyle = '#080c14';
+  ctx.fillRect(0, 0, W, H);
+
+  // Draw wafer circle outline
+  const cx = W/2, cy = H/2;
+  const r  = Math.min(W, H) / 2 - 2;
+  ctx.strokeStyle = '#2a3448';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Build grid
+  const grid = {};
+  dies.forEach(d => { grid[`${d.x},${d.y}`] = d.bin; });
+
+  const gap = Math.max(1, Math.floor(cellSize * 0.08));
+  const radius = Math.max(1, Math.floor(cellSize * 0.15));
+
+  for (let y = ymin; y <= ymax; y++) {
+    for (let x = xmin; x <= xmax; x++) {
+      const px = pad + (x - xmin) * cellSize;
+      const py = pad + (y - ymin) * cellSize;
+      const key = `${x},${y}`;
+      if (key in grid) {
+        const bin = grid[key];
+        ctx.fillStyle = binColor(bin);
+        roundRect(ctx, px + gap, py + gap, cellSize - gap*2, cellSize - gap*2, radius);
+        ctx.fill();
+        // Bin number label if cell is large enough
+        if (cellSize >= 18 && bin !== 1) {
+          ctx.fillStyle = 'rgba(0,0,0,0.7)';
+          ctx.font = `bold ${Math.floor(cellSize*0.45)}px JetBrains Mono, monospace`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(String(bin), px + cellSize/2, py + cellSize/2);
+        }
+      } else {
+        // Empty die slot within bounding box
+        ctx.fillStyle = '#1a2030';
+        roundRect(ctx, px + gap, py + gap, cellSize - gap*2, cellSize - gap*2, radius);
+        ctx.fill();
+      }
+    }
+  }
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// ---- Info panel ----
+function updateInfo({ waferId, dies, binCounts, passCnt, rowCnt, colCnt }) {
+  const total = dies.length;
+  const yieldPct = total ? ((passCnt/total)*100).toFixed(1) : '0.0';
+  const items = [
+    ['Wafer ID', waferId],
+    ['Total Dies', total],
+    ['Pass (Bin 1)', passCnt],
+    ['Yield', yieldPct + '%'],
+    ['Grid Rows', rowCnt],
+    ['Grid Cols', colCnt],
+  ];
+  infoGrid.innerHTML = items.map(([l,v]) => `
+    <div class="info-item">
+      <div class="info-label">${l}</div>
+      <div class="info-value">${v}</div>
+    </div>`).join('');
+}
+
+// ---- Legend ----
+function updateLegend(binCounts, total) {
+  const bins = Object.keys(binCounts).map(Number).sort((a,b)=>a-b);
+  legendEl.innerHTML = bins.map(b => {
+    const cnt = binCounts[b];
+    const pct = ((cnt/total)*100).toFixed(1);
+    return `<div class="legend-item">
+      <div class="legend-dot" style="background:${binColor(b)}"></div>
+      <span class="legend-label">${BIN_LABELS[b] || 'Bin '+b}</span>
+      <span class="legend-count">${cnt}</span>
+      <span class="legend-pct">${pct}%</span>
+    </div>`;
+  }).join('');
+}
+
+// ---- Download ----
+btnDL.addEventListener('click', () => {
+  if (!txtContent) return;
+  const wid = (parsedData?.waferId || 'wafer').replace(/[^\w.-]/g,'_');
+  const blob = new Blob([txtContent], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${wid}.txt`;
+  a.click();
+});
+</script>
+</body>
+</html>
