@@ -361,6 +361,54 @@ html, body {
   margin-top: 4px;
 }
 
+/* ── Batch import ── */
+.batch-buttons {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.batch-label {
+  position: relative;
+  text-align: center;
+  margin-top: 0;
+  font-size: 13px;
+  padding: 12px 10px;
+  overflow: hidden;
+}
+.batch-label input[type=file] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+.batch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.batch-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.batch-item:active { border-color: var(--accent); }
+.batch-item .bi-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #fff;
+}
+.batch-item .bi-status { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+.batch-item .bi-status.ok { color: var(--accent); }
+.batch-item .bi-status.err { color: var(--danger); }
+
 /* ── Toast ── */
 #toast {
   position: fixed;
@@ -425,6 +473,21 @@ html, body {
 
       <button class="btn btn-primary" id="btn-generate" disabled>產生 Wafer Map</button>
       <button class="btn btn-secondary" id="btn-download" disabled>下載 .txt</button>
+
+      <p class="section-head" style="margin-top:22px;">批次匯入（多檔 / 整個資料夾）</p>
+      <div class="batch-buttons">
+        <label class="btn btn-secondary batch-label">
+          📑 選擇多個檔案
+          <input type="file" id="batch-file-input" accept=".csv,.xlsx" multiple>
+        </label>
+        <label class="btn btn-secondary batch-label">
+          🗂 選擇資料夾
+          <input type="file" id="batch-dir-input" webkitdirectory directory multiple>
+        </label>
+      </div>
+      <div id="batch-list" class="batch-list"></div>
+      <button class="btn btn-primary" id="btn-gen-batch" disabled style="margin-top:10px;">批次產生全部 Map</button>
+      <button class="btn btn-secondary" id="btn-dl-batch" disabled>下載全部 (ZIP)</button>
 
       <div id="status-bar">
         <div class="status-dot"></div>
@@ -491,6 +554,7 @@ html, body {
 <div id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
 'use strict';
 
@@ -687,7 +751,7 @@ const EMBEDDED_DATA = {"waferId":"NK13141-01","dies":[{"bin":1,"x":20,"y":6},{"b
 // ── Generate ──
 btnGen.addEventListener('click', () => { if (parsedData) generate(parsedData); });
 
-function generate(data) {
+function buildMapData(data) {
   const { waferId, dies } = data;
   const xs=dies.map(d=>d.x), ys=dies.map(d=>d.y);
   const xmin=Math.min(...xs), xmax=Math.max(...xs);
@@ -706,7 +770,7 @@ function generate(data) {
   const mapRows = [dotRow];
   for (let y=ymin; y<=ymax; y++) {
     let row='';
-    for (let x=xmin; x<=xmax; x++) { const k=`${x},${y}`; row+=(k in grid)?String(grid[k]):'.'; }
+    for (let x=xmin; x<=xmax; x++) { const k=`${x},${y}`; row+=(k in grid)?(grid[k]===1?'1':'F'):'.'; }
     mapRows.push(row);
   }
   mapRows.push(dotRow);
@@ -722,25 +786,144 @@ function generate(data) {
     `REMARK SPECIAL INKING`,`MAPID1 ${lotMea}`,
   ];
   const mapLines = mapRows.map((r,i)=>`MAP${String(i+1).padStart(3,'0')} ${r}`);
-  txtContent = [...headerLines, ...mapLines].join('\n') + '\n';
+  const built = [...headerLines, ...mapLines].join('\n') + '\n';
+
+  return { waferId, dies, binCounts, passCnt, rowCnt, colCnt, xmin, xmax, ymin, ymax, txtContent: built };
+}
+
+function generate(data) {
+  const built = buildMapData(data);
+  parsedData = data;
+  txtContent = built.txtContent;
 
   txtOut.textContent = txtContent;
-  updateInfo({ waferId, dies, binCounts, passCnt, rowCnt, colCnt });
-  updateLegend(binCounts, dies.length);
-  waferBadge.textContent = waferId;
+  updateInfo(built);
+  updateLegend(built.binCounts, built.dies.length);
+  waferBadge.textContent = built.waferId;
 
   // Auto cell size based on screen
   const availW = mapContainer.clientWidth || window.innerWidth - 32;
-  cellSize = Math.max(6, Math.min(20, Math.floor(availW / (colCnt + 2))));
+  cellSize = Math.max(6, Math.min(20, Math.floor(availW / (built.colCnt + 2))));
   panX = 0; panY = 0;
   drawMap();
 
   btnDL.disabled   = false;
   btnCopy.disabled = false;
-  setStatus(`✓ ${dies.length} dies · ${rowCnt}×${colCnt} · Yield ${((passCnt/dies.length)*100).toFixed(1)}%`, 'success');
+  setStatus(`✓ ${built.dies.length} dies · ${built.rowCnt}×${built.colCnt} · Yield ${((built.passCnt/built.dies.length)*100).toFixed(1)}%`, 'success');
   showToast('✓ Map 產生完成');
   switchPage(1);
 }
+
+// ── Batch import (multi-file / folder) ──
+const batchFileInput = document.getElementById('batch-file-input');
+const batchDirInput  = document.getElementById('batch-dir-input');
+const batchListEl    = document.getElementById('batch-list');
+const btnGenBatch    = document.getElementById('btn-gen-batch');
+const btnDlBatch     = document.getElementById('btn-dl-batch');
+
+let batchData = []; // { file, fileName, waferId, dies, txtContent, status, error }
+
+batchFileInput.addEventListener('change', () => {
+  if (batchFileInput.files.length) loadBatchFiles(Array.from(batchFileInput.files));
+  batchFileInput.value = '';
+});
+batchDirInput.addEventListener('change', () => {
+  if (batchDirInput.files.length) loadBatchFiles(Array.from(batchDirInput.files));
+  batchDirInput.value = '';
+});
+
+function loadBatchFiles(files) {
+  const valid = files.filter(f => /\.(csv|xlsx)$/i.test(f.name));
+  if (!valid.length) { showToast('找不到 .csv / .xlsx 檔案'); return; }
+  batchData = valid.map(f => ({ file:f, fileName:f.name, waferId:null, dies:null, txtContent:null, error:null, status:'pending' }));
+  renderBatchList();
+  btnGenBatch.disabled = false;
+  btnDlBatch.disabled = true;
+  showToast(`✓ 已選取 ${valid.length} 個檔案`);
+}
+
+function renderBatchList() {
+  batchListEl.innerHTML = batchData.map((b,i) => {
+    let statusHtml;
+    if (b.status === 'pending') statusHtml = '<span class="bi-status">待處理</span>';
+    else if (b.status === 'ok') statusHtml = `<span class="bi-status ok">✓ ${b.dies.length} dies</span>`;
+    else statusHtml = `<span class="bi-status err" title="${(b.error||'').replace(/"/g,'')}">✗ 錯誤</span>`;
+    return `<div class="batch-item" data-idx="${i}">
+      <span class="bi-name">${b.fileName}</span>
+      ${statusHtml}
+    </div>`;
+  }).join('');
+  batchListEl.querySelectorAll('.batch-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const b = batchData[parseInt(el.dataset.idx)];
+      if (b.status === 'ok') generate({ waferId: b.waferId, dies: b.dies });
+      else showToast(b.error ? ('此檔案解析失敗：' + b.error) : '此檔案尚未處理');
+    });
+  });
+}
+
+function parseFileAuto(file) {
+  return new Promise((resolve, reject) => {
+    const isCsv = /\.csv$/i.test(file.name);
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        resolve(isCsv ? parseCsv(e.target.result, file.name) : parseXlsx(e.target.result, file.name));
+      } catch (err) { reject(err); }
+    };
+    reader.onerror = () => reject(new Error('讀取檔案失敗'));
+    if (isCsv) reader.readAsText(file, 'utf-8'); else reader.readAsArrayBuffer(file);
+  });
+}
+
+btnGenBatch.addEventListener('click', async () => {
+  if (!batchData.length) return;
+  btnGenBatch.disabled = true;
+  btnDlBatch.disabled = true;
+  setStatus('批次處理中…');
+  for (let i = 0; i < batchData.length; i++) {
+    const b = batchData[i];
+    try {
+      const parsed = await parseFileAuto(b.file);
+      const built = buildMapData(parsed);
+      b.waferId = parsed.waferId;
+      b.dies = parsed.dies;
+      b.txtContent = built.txtContent;
+      b.status = 'ok';
+    } catch (err) {
+      b.error = err.message;
+      b.status = 'error';
+    }
+    renderBatchList();
+  }
+  const okCount = batchData.filter(b => b.status === 'ok').length;
+  setStatus(`✓ 批次完成：${okCount}/${batchData.length} 成功`, okCount ? 'success' : 'error');
+  showToast('✓ 批次處理完成');
+  btnGenBatch.disabled = false;
+  btnDlBatch.disabled = okCount === 0;
+});
+
+btnDlBatch.addEventListener('click', async () => {
+  const okItems = batchData.filter(b => b.status === 'ok');
+  if (!okItems.length) return;
+  if (typeof JSZip === 'undefined') { showToast('ZIP 套件載入失敗'); return; }
+  const zip = new JSZip();
+  const usedNames = new Set();
+  okItems.forEach(b => {
+    let safe = (b.waferId || b.fileName).replace(/[^\w.-]/g,'_');
+    let name = `${safe}.txt`, n = 1;
+    while (usedNames.has(name)) { name = `${safe}_${n++}.txt`; }
+    usedNames.add(name);
+    zip.file(name, b.txtContent);
+  });
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `wafer_maps_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.zip`;
+  a.click();
+  showToast(`✓ 已下載 ${okItems.length} 個 .txt（ZIP）`);
+});
+
 
 // ── Draw ──
 function drawMap() {
