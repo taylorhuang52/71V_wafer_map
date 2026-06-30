@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="WaferMap">
+<meta name="theme-color" content="#00d4aa">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Wafer Map - NK13141-01 (9U)</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;700;800&display=swap');
+
+:root {
+  --bg: #0b0e17;
+  --surface: #121620;
+  --surface2: #1a2030;
+  --border: #2a3448;
+  --accent: #00d4aa;
+  --text: #c8d6ef;
+  --text-dim: #5a6a8a;
+  --danger: #ff6b6b;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bot: env(safe-area-inset-bottom, 0px);
+  --nav-h: 64px;
+  --header-h: 56px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* ── App shell ── */
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding-top: var(--safe-top);
+  padding-bottom: calc(var(--nav-h) + var(--safe-bot));
+}
+
+/* ── Top bar ── */
+#topbar {
+  height: var(--header-h);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.logo {
+  width: 32px; height: 32px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 11px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+#topbar h1 {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 16px;
+  color: #fff;
+  flex: 1;
+}
+#topbar h1 span { color: var(--accent); }
+
+#install-btn {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 6px 12px;
+  background: var(--accent);
+  color: #000;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  display: none;
+  white-space: nowrap;
+}
+
+/* ── Pages ── */
+#pages {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.page {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px;
+  display: none;
+  animation: fadein 0.2s ease;
+}
+.page.active { display: block; }
+@keyframes fadein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* ── Upload page ── */
+.upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: 16px;
+  padding: 36px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: var(--surface);
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 16px;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.upload-zone::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 0%, rgba(0,212,170,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+.upload-zone.dragover { border-color: var(--accent); background: rgba(0,212,170,0.05); }
+.upload-zone input[type=file] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+.upload-icon { font-size: 48px; line-height: 1; }
+.upload-zone h2 {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 17px;
+  color: #fff;
+}
+.upload-zone p { font-size: 12px; color: var(--text-dim); }
+.upload-zone .fname {
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: 600;
+  display: none;
+  margin-top: 4px;
+}
+
+.btn {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  padding: 14px 24px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.15s ease;
+  letter-spacing: 0.2px;
+}
+.btn-primary { background: var(--accent); color: #000; }
+.btn-primary:active { background: #00f0c0; transform: scale(0.98); }
+.btn-primary:disabled { background: var(--border); color: var(--text-dim); }
+.btn-secondary {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  margin-top: 10px;
+}
+.btn-secondary:active { border-color: var(--accent); color: var(--accent); transform: scale(0.98); }
+.btn-secondary:disabled { opacity: 0.4; }
+
+#status-bar {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 12px;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#status-bar.error { color: var(--danger); border-color: var(--danger); }
+#status-bar.success { color: var(--accent); border-color: rgba(0,212,170,0.3); }
+.status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  flex-shrink: 0;
+}
+#status-bar.error .status-dot { background: var(--danger); }
+#status-bar.success .status-dot { background: var(--accent); animation: pulse 1.5s ease infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* ── Map page ── */
+#map-container {
+  position: relative;
+  background: #080c14;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  touch-action: none;
+  cursor: grab;
+  margin-bottom: 16px;
+}
+#map-container:active { cursor: grabbing; }
+#wafer-canvas { display: block; }
+#wafer-id-badge {
+  position: absolute;
+  top: 10px; left: 10px;
+  background: rgba(0,212,170,0.15);
+  border: 1px solid rgba(0,212,170,0.3);
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  pointer-events: none;
+}
+#zoom-controls {
+  position: absolute;
+  bottom: 10px; right: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.zoom-btn {
+  width: 36px; height: 36px;
+  background: rgba(18,22,32,0.9);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 18px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  backdrop-filter: blur(4px);
+}
+.zoom-btn:active { background: var(--surface2); color: var(--accent); }
+
+/* ── Info page ── */
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.info-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+}
+.info-card.wide { grid-column: 1/-1; }
+.info-card .lbl {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+.info-card .val {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 22px;
+  color: #fff;
+}
+.info-card .val.accent { color: var(--accent); }
+
+.legend-list { display: flex; flex-direction: column; gap: 6px; }
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+.legend-swatch { width: 16px; height: 16px; border-radius: 4px; flex-shrink: 0; }
+.legend-name { flex: 1; font-size: 13px; }
+.legend-cnt { font-size: 12px; color: var(--text-dim); }
+.legend-pct { font-size: 12px; color: var(--accent); font-weight: 600; min-width: 42px; text-align: right; }
+
+/* ── Text page ── */
+#txt-output {
+  background: #080c14;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #7a9ab8;
+  white-space: pre;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  min-height: 300px;
+  margin-bottom: 16px;
+}
+
+/* ── Bottom nav ── */
+#nav {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: calc(var(--nav-h) + var(--safe-bot));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  padding-bottom: var(--safe-bot);
+  z-index: 100;
+}
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+  transition: color 0.15s;
+  color: var(--text-dim);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  padding: 8px 0;
+}
+.nav-item.active { color: var(--accent); }
+.nav-item:active { transform: scale(0.92); }
+.nav-icon { font-size: 22px; line-height: 1; }
+.nav-label { font-size: 10px; font-weight: 600; font-family: 'Syne', sans-serif; letter-spacing: 0.3px; }
+
+/* ── Section heading ── */
+.section-head {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+  margin-top: 4px;
+}
+
+/* ── Toast ── */
+#toast {
+  position: fixed;
+  top: calc(var(--header-h) + var(--safe-top) + 12px);
+  left: 50%; transform: translateX(-50%);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+  z-index: 999;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+#toast.show { opacity: 1; }
+
+/* ── Spinner ── */
+.spinner {
+  width: 20px; height: 20px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Desktop adaptive ── */
+@media (min-width: 640px) {
+  #app { max-width: 640px; margin: 0 auto; }
+  #nav { max-width: 640px; left: 50%; transform: translateX(-50%); }
+  #toast { top: calc(var(--header-h) + 16px); }
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- Top bar -->
+  <div id="topbar">
+    <div class="logo">WM</div>
+    <h1>Wafer <span>Map</span></h1>
+    <button id="install-btn">⬇ 安裝 App</button>
+  </div>
+
+  <!-- Pages -->
+  <div id="pages">
+
+    <!-- Page 0: Upload -->
+    <div class="page active" id="page-upload">
+      <div class="upload-zone" id="dropzone">
+        <input type="file" id="file-input" accept=".xlsx,.csv">
+        <div class="upload-icon">📂</div>
+        <h2>選擇 .xlsx / .csv 檔案</h2>
+        <p>點擊或從檔案管理員拖曳</p>
+        <div class="fname" id="fname"></div>
+      </div>
+
+      <button class="btn btn-primary" id="btn-generate" disabled>產生 Wafer Map</button>
+      <button class="btn btn-secondary" id="btn-download" disabled>下載 .txt</button>
+
+      <div id="status-bar">
+        <div class="status-dot"></div>
+        <span id="status-text">選擇 .xlsx 檔案開始</span>
+      </div>
+    </div>
+
+    <!-- Page 1: Map visual -->
+    <div class="page" id="page-map">
+      <div id="map-container">
+        <canvas id="wafer-canvas"></canvas>
+        <div id="wafer-id-badge"></div>
+        <div id="zoom-controls">
+          <div class="zoom-btn" id="zoom-in">+</div>
+          <div class="zoom-btn" id="zoom-out">−</div>
+          <div class="zoom-btn" id="zoom-fit" title="Fit">⊡</div>
+        </div>
+      </div>
+      <p style="font-size:11px; color:var(--text-dim); text-align:center; margin-top:4px;">
+        雙指縮放 · 拖曳平移
+      </p>
+    </div>
+
+    <!-- Page 2: Info + Legend -->
+    <div class="page" id="page-info">
+      <p class="section-head">Wafer 資訊</p>
+      <div class="info-grid" id="info-grid">
+        <div class="info-card wide" style="color:var(--text-dim);font-size:13px;">尚未產生 Map</div>
+      </div>
+      <p class="section-head">Bin 圖例</p>
+      <div class="legend-list" id="legend-list"></div>
+    </div>
+
+    <!-- Page 3: Text output -->
+    <div class="page" id="page-txt">
+      <p class="section-head">Text 輸出預覽</p>
+      <pre id="txt-output">尚未產生 Map</pre>
+      <button class="btn btn-primary" id="btn-copy" disabled style="margin-top:0;">複製全文</button>
+    </div>
+
+  </div><!-- /pages -->
+</div><!-- /app -->
+
+<!-- Bottom nav -->
+<nav id="nav">
+  <div class="nav-item active" data-page="0">
+    <div class="nav-icon">📁</div>
+    <div class="nav-label">上傳</div>
+  </div>
+  <div class="nav-item" data-page="1">
+    <div class="nav-icon">🔵</div>
+    <div class="nav-label">Map</div>
+  </div>
+  <div class="nav-item" data-page="2">
+    <div class="nav-icon">📊</div>
+    <div class="nav-label">資訊</div>
+  </div>
+  <div class="nav-item" data-page="3">
+    <div class="nav-icon">📄</div>
+    <div class="nav-label">文字</div>
+  </div>
+</nav>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+'use strict';
+
+// ── Service Worker ──
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+
+// ── PWA install prompt ──
+let deferredPrompt = null;
+const installBtn = document.getElementById('install-btn');
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  installBtn.style.display = 'block';
+});
+installBtn.addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  if (outcome === 'accepted') installBtn.style.display = 'none';
+  deferredPrompt = null;
+});
+
+// ── Bin colors ──
+const BIN_COLORS = {1:'#00d4aa',2:'#ffd700',3:'#ff6b35',4:'#e040fb',5:'#ff4444',6:'#4facfe',7:'#aef359',8:'#ff9800',9:'#f06292'};
+const BIN_LABELS = {1:'Bin 1 – Pass',2:'Bin 2',3:'Bin 3',4:'Bin 4',5:'Bin 5',6:'Bin 6',7:'Bin 7',8:'Bin 8',9:'Bin 9'};
+function binColor(b) { return BIN_COLORS[b] || '#888888'; }
+
+// ── State ──
+let parsedData = null;
+let txtContent  = '';
+let cellSize    = 14;
+let panX = 0, panY = 0;
+let currentPage = 0;
+
+// ── DOM ──
+const fileInput  = document.getElementById('file-input');
+const dropzone   = document.getElementById('dropzone');
+const fnameEl    = document.getElementById('fname');
+const btnGen     = document.getElementById('btn-generate');
+const btnDL      = document.getElementById('btn-download');
+const btnCopy    = document.getElementById('btn-copy');
+const statusBar  = document.getElementById('status-bar');
+const statusText = document.getElementById('status-text');
+const canvas     = document.getElementById('wafer-canvas');
+const ctx        = canvas.getContext('2d');
+const waferBadge = document.getElementById('wafer-id-badge');
+const infoGrid   = document.getElementById('info-grid');
+const legendList = document.getElementById('legend-list');
+const txtOut     = document.getElementById('txt-output');
+const mapContainer = document.getElementById('map-container');
+const toast      = document.getElementById('toast');
+
+// ── Navigation ──
+const pages    = document.querySelectorAll('.page');
+const navItems = document.querySelectorAll('.nav-item');
+navItems.forEach(item => {
+  item.addEventListener('click', () => switchPage(parseInt(item.dataset.page)));
+});
+
+function switchPage(idx) {
+  pages.forEach((p, i) => p.classList.toggle('active', i === idx));
+  navItems.forEach((n, i) => n.classList.toggle('active', i === idx));
+  currentPage = idx;
+}
+
+// ── Toast ──
+let toastTimer;
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+}
+
+// ── Status ──
+function setStatus(msg, type = '') {
+  statusText.textContent = msg;
+  statusBar.className = type;
+}
+
+// ── File handling ──
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault(); dropzone.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+
+function handleFile(file) {
+  const isXlsx = file.name.toLowerCase().endsWith('.xlsx');
+  const isCsv  = file.name.toLowerCase().endsWith('.csv');
+  if (!isXlsx && !isCsv) { setStatus('❌ 只支援 .xlsx 或 .csv 格式', 'error'); return; }
+  fnameEl.textContent = '📄 ' + file.name;
+  fnameEl.style.display = 'block';
+
+  // show spinner
+  statusBar.innerHTML = '<div class="spinner"></div><span>讀取中…</span>';
+  statusBar.className = '';
+  btnGen.disabled = true;
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      parsedData = isCsv ? parseCsv(e.target.result, file.name) : parseXlsx(e.target.result, file.name);
+      statusBar.innerHTML = '<div class="status-dot"></div><span id="status-text"></span>';
+      setStatus(`✓ 載入 ${parsedData.dies.length} 個 die`, 'success');
+      btnGen.disabled = false;
+    } catch(err) {
+      statusBar.innerHTML = '<div class="status-dot"></div><span id="status-text"></span>';
+      setStatus('解析錯誤：' + err.message, 'error');
+    }
+  };
+  if (isCsv) reader.readAsText(file, 'utf-8'); else reader.readAsArrayBuffer(file);
+}
+
+// ── Parse CSV (CP log) ──
+function parseCsvRows(text) {
+  // simple CSV row splitter (no embedded commas inside quotes expected in this log format)
+  return text.split(/\r\n|\n|\r/).map(line => line.split(','));
+}
+
+function parseCsv(text, fileName) {
+  const rows = parseCsvRows(text);
+
+  let waferId = '';
+  for (let i = 0; i < Math.min(15, rows.length); i++) {
+    const cell = String(rows[i][0] || '');
+    if (cell.includes('Wafer ID')) {
+      const parts = rows[i].join(',').split(':');
+      if (parts.length > 1) waferId = parts.slice(1).join(':').trim();
+      break;
+    }
+  }
+  if (!waferId) waferId = fileName.replace(/\.csv$/i,'').replace(/-/g,'.');
+
+  let headerIdx = -1, cols = {};
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i].map(c => String(c||'').trim());
+    if (r.includes('Serial#') && r.includes('Bin#') && r.includes('XAdr') && r.includes('YAdr')) {
+      headerIdx = i; r.forEach((n,ci) => { cols[n]=ci; }); break;
+    }
+  }
+  if (headerIdx === -1) throw new Error('找不到標頭列 (Serial#/Bin#/XAdr/YAdr)');
+
+  const dies = [];
+  for (let i = headerIdx+1; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r || r.length <= cols['Serial#'] || r[cols['Serial#']] === '' || r[cols['Serial#']] == null) continue;
+    const bin=parseInt(r[cols['Bin#']]), x=parseInt(r[cols['XAdr']]), y=parseInt(r[cols['YAdr']]);
+    if (!isNaN(bin) && !isNaN(x) && !isNaN(y)) dies.push({bin,x,y});
+  }
+  if (!dies.length) throw new Error('沒有找到 die 資料');
+  return { waferId, dies };
+}
+
+// ── Parse XLSX ──
+function parseXlsx(buffer, fileName) {
+  const wb = XLSX.read(buffer, { type: 'array' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+
+  let waferId = '';
+  for (let i = 0; i < Math.min(10, rows.length); i++) {
+    const cell = String(rows[i][0] || '');
+    if (cell.includes('WaferID')) { waferId = cell.replace(/WaferID\s*:\s*/,'').trim(); break; }
+  }
+  if (!waferId) waferId = fileName.replace('.xlsx','').replace(/-/g,'.');
+
+  let headerIdx = -1, cols = {};
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i].map(c => String(c||'').trim());
+    if (r.includes('Serial#') && r.includes('Bin#') && r.includes('XAdr') && r.includes('YAdr')) {
+      headerIdx = i; r.forEach((n,ci) => { cols[n]=ci; }); break;
+    }
+  }
+  if (headerIdx === -1) throw new Error('找不到標頭列 (Serial#/Bin#/XAdr/YAdr)');
+
+  const dies = [];
+  for (let i = headerIdx+1; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r || r[cols['Serial#']] == null) continue;
+    const bin=parseInt(r[cols['Bin#']]), x=parseInt(r[cols['XAdr']]), y=parseInt(r[cols['YAdr']]);
+    if (!isNaN(bin) && !isNaN(x) && !isNaN(y)) dies.push({bin,x,y});
+  }
+  if (!dies.length) throw new Error('沒有找到 die 資料');
+  return { waferId, dies };
+}
+
+const EMBEDDED_DATA = {"waferId":"NK13141-01","dies":[{"bin":1,"x":20,"y":6},{"bin":1,"x":21,"y":6},{"bin":1,"x":25,"y":7},{"bin":1,"x":25,"y":8},{"bin":1,"x":26,"y":8},{"bin":1,"x":27,"y":8},{"bin":1,"x":21,"y":7},{"bin":1,"x":22,"y":7},{"bin":1,"x":23,"y":7},{"bin":1,"x":24,"y":7},{"bin":1,"x":21,"y":8},{"bin":1,"x":22,"y":8},{"bin":1,"x":23,"y":8},{"bin":1,"x":24,"y":8},{"bin":1,"x":17,"y":7},{"bin":1,"x":18,"y":7},{"bin":1,"x":19,"y":7},{"bin":1,"x":20,"y":7},{"bin":1,"x":17,"y":8},{"bin":1,"x":18,"y":8},{"bin":1,"x":19,"y":8},{"bin":1,"x":20,"y":8},{"bin":1,"x":16,"y":7},{"bin":1,"x":14,"y":8},{"bin":1,"x":15,"y":8},{"bin":1,"x":16,"y":8},{"bin":1,"x":12,"y":9},{"bin":1,"x":13,"y":9},{"bin":1,"x":14,"y":9},{"bin":1,"x":11,"y":10},{"bin":1,"x":12,"y":10},{"bin":1,"x":13,"y":10},{"bin":1,"x":14,"y":10},{"bin":1,"x":15,"y":9},{"bin":1,"x":16,"y":9},{"bin":1,"x":17,"y":9},{"bin":1,"x":18,"y":9},{"bin":1,"x":15,"y":10},{"bin":1,"x":16,"y":10},{"bin":1,"x":17,"y":10},{"bin":1,"x":18,"y":10},{"bin":1,"x":19,"y":9},{"bin":1,"x":20,"y":9},{"bin":9,"x":21,"y":9},{"bin":1,"x":22,"y":9},{"bin":1,"x":19,"y":10},{"bin":1,"x":20,"y":10},{"bin":1,"x":21,"y":10},{"bin":1,"x":22,"y":10},{"bin":1,"x":23,"y":9},{"bin":1,"x":24,"y":9},{"bin":1,"x":25,"y":9},{"bin":1,"x":26,"y":9},{"bin":1,"x":23,"y":10},{"bin":1,"x":24,"y":10},{"bin":1,"x":25,"y":10},{"bin":1,"x":26,"y":10},{"bin":1,"x":27,"y":9},{"bin":1,"x":28,"y":9},{"bin":1,"x":29,"y":9},{"bin":1,"x":27,"y":10},{"bin":1,"x":28,"y":10},{"bin":1,"x":29,"y":10},{"bin":1,"x":30,"y":10},{"bin":1,"x":29,"y":11},{"bin":1,"x":30,"y":11},{"bin":1,"x":31,"y":11},{"bin":1,"x":29,"y":12},{"bin":1,"x":30,"y":12},{"bin":1,"x":31,"y":12},{"bin":1,"x":32,"y":12},{"bin":1,"x":25,"y":11},{"bin":1,"x":26,"y":11},{"bin":1,"x":27,"y":11},{"bin":1,"x":28,"y":11},{"bin":1,"x":25,"y":12},{"bin":1,"x":26,"y":12},{"bin":1,"x":27,"y":12},{"bin":1,"x":28,"y":12},{"bin":1,"x":21,"y":11},{"bin":1,"x":22,"y":11},{"bin":1,"x":23,"y":11},{"bin":1,"x":24,"y":11},{"bin":1,"x":21,"y":12},{"bin":1,"x":22,"y":12},{"bin":1,"x":23,"y":12},{"bin":1,"x":24,"y":12},{"bin":1,"x":17,"y":11},{"bin":1,"x":18,"y":11},{"bin":1,"x":19,"y":11},{"bin":9,"x":20,"y":11},{"bin":1,"x":17,"y":12},{"bin":1,"x":18,"y":12},{"bin":1,"x":19,"y":12},{"bin":1,"x":20,"y":12},{"bin":1,"x":13,"y":11},{"bin":1,"x":14,"y":11},{"bin":1,"x":15,"y":11},{"bin":1,"x":16,"y":11},{"bin":1,"x":13,"y":12},{"bin":1,"x":14,"y":12},{"bin":1,"x":15,"y":12},{"bin":1,"x":16,"y":12},{"bin":1,"x":10,"y":11},{"bin":1,"x":11,"y":11},{"bin":1,"x":12,"y":11},{"bin":1,"x":9,"y":12},{"bin":1,"x":10,"y":12},{"bin":1,"x":11,"y":12},{"bin":1,"x":12,"y":12},{"bin":1,"x":9,"y":13},{"bin":1,"x":10,"y":13},{"bin":1,"x":8,"y":14},{"bin":1,"x":9,"y":14},{"bin":1,"x":10,"y":14},{"bin":1,"x":11,"y":13},{"bin":1,"x":12,"y":13},{"bin":1,"x":13,"y":13},{"bin":1,"x":14,"y":13},{"bin":1,"x":11,"y":14},{"bin":1,"x":12,"y":14},{"bin":1,"x":13,"y":14},{"bin":1,"x":14,"y":14},{"bin":1,"x":15,"y":13},{"bin":1,"x":16,"y":13},{"bin":1,"x":17,"y":13},{"bin":1,"x":18,"y":13},{"bin":1,"x":15,"y":14},{"bin":1,"x":16,"y":14},{"bin":1,"x":17,"y":14},{"bin":1,"x":18,"y":14},{"bin":1,"x":19,"y":13},{"bin":1,"x":20,"y":13},{"bin":1,"x":21,"y":13},{"bin":1,"x":22,"y":13},{"bin":1,"x":19,"y":14},{"bin":1,"x":20,"y":14},{"bin":1,"x":21,"y":14},{"bin":1,"x":22,"y":14},{"bin":1,"x":23,"y":13},{"bin":1,"x":24,"y":13},{"bin":1,"x":25,"y":13},{"bin":1,"x":26,"y":13},{"bin":1,"x":23,"y":14},{"bin":1,"x":24,"y":14},{"bin":1,"x":25,"y":14},{"bin":1,"x":26,"y":14},{"bin":1,"x":27,"y":13},{"bin":1,"x":28,"y":13},{"bin":1,"x":29,"y":13},{"bin":1,"x":30,"y":13},{"bin":1,"x":27,"y":14},{"bin":1,"x":28,"y":14},{"bin":1,"x":29,"y":14},{"bin":1,"x":30,"y":14},{"bin":1,"x":31,"y":13},{"bin":1,"x":32,"y":13},{"bin":1,"x":31,"y":14},{"bin":1,"x":32,"y":14},{"bin":1,"x":33,"y":14},{"bin":1,"x":31,"y":15},{"bin":1,"x":32,"y":15},{"bin":1,"x":33,"y":15},{"bin":1,"x":31,"y":16},{"bin":1,"x":32,"y":16},{"bin":1,"x":33,"y":16},{"bin":1,"x":34,"y":16},{"bin":1,"x":27,"y":15},{"bin":1,"x":28,"y":15},{"bin":1,"x":29,"y":15},{"bin":1,"x":30,"y":15},{"bin":1,"x":27,"y":16},{"bin":1,"x":28,"y":16},{"bin":1,"x":29,"y":16},{"bin":1,"x":30,"y":16},{"bin":1,"x":23,"y":15},{"bin":1,"x":24,"y":15},{"bin":1,"x":25,"y":15},{"bin":1,"x":26,"y":15},{"bin":1,"x":23,"y":16},{"bin":1,"x":24,"y":16},{"bin":1,"x":25,"y":16},{"bin":1,"x":26,"y":16},{"bin":1,"x":19,"y":15},{"bin":1,"x":20,"y":15},{"bin":1,"x":21,"y":15},{"bin":1,"x":22,"y":15},{"bin":1,"x":19,"y":16},{"bin":1,"x":20,"y":16},{"bin":1,"x":21,"y":16},{"bin":1,"x":22,"y":16},{"bin":1,"x":15,"y":15},{"bin":1,"x":16,"y":15},{"bin":1,"x":17,"y":15},{"bin":1,"x":18,"y":15},{"bin":1,"x":15,"y":16},{"bin":1,"x":16,"y":16},{"bin":1,"x":17,"y":16},{"bin":1,"x":18,"y":16},{"bin":1,"x":11,"y":15},{"bin":1,"x":12,"y":15},{"bin":1,"x":13,"y":15},{"bin":1,"x":14,"y":15},{"bin":1,"x":11,"y":16},{"bin":1,"x":12,"y":16},{"bin":1,"x":13,"y":16},{"bin":1,"x":14,"y":16},{"bin":1,"x":8,"y":15},{"bin":1,"x":9,"y":15},{"bin":1,"x":10,"y":15},{"bin":1,"x":7,"y":16},{"bin":1,"x":8,"y":16},{"bin":1,"x":9,"y":16},{"bin":1,"x":10,"y":16},{"bin":1,"x":7,"y":17},{"bin":1,"x":8,"y":17},{"bin":1,"x":7,"y":18},{"bin":1,"x":8,"y":18},{"bin":1,"x":9,"y":17},{"bin":1,"x":10,"y":17},{"bin":1,"x":11,"y":17},{"bin":1,"x":12,"y":17},{"bin":1,"x":9,"y":18},{"bin":1,"x":10,"y":18},{"bin":1,"x":11,"y":18},{"bin":1,"x":12,"y":18},{"bin":1,"x":13,"y":17},{"bin":1,"x":14,"y":17},{"bin":1,"x":15,"y":17},{"bin":1,"x":16,"y":17},{"bin":1,"x":13,"y":18},{"bin":1,"x":14,"y":18},{"bin":1,"x":15,"y":18},{"bin":1,"x":16,"y":18},{"bin":1,"x":17,"y":17},{"bin":1,"x":18,"y":17},{"bin":1,"x":19,"y":17},{"bin":1,"x":20,"y":17},{"bin":1,"x":17,"y":18},{"bin":1,"x":18,"y":18},{"bin":1,"x":19,"y":18},{"bin":1,"x":20,"y":18},{"bin":1,"x":21,"y":17},{"bin":1,"x":22,"y":17},{"bin":1,"x":23,"y":17},{"bin":1,"x":24,"y":17},{"bin":1,"x":21,"y":18},{"bin":1,"x":22,"y":18},{"bin":1,"x":23,"y":18},{"bin":1,"x":24,"y":18},{"bin":1,"x":25,"y":17},{"bin":1,"x":26,"y":17},{"bin":1,"x":27,"y":17},{"bin":1,"x":28,"y":17},{"bin":1,"x":25,"y":18},{"bin":1,"x":26,"y":18},{"bin":1,"x":27,"y":18},{"bin":1,"x":28,"y":18},{"bin":1,"x":29,"y":17},{"bin":1,"x":30,"y":17},{"bin":1,"x":31,"y":17},{"bin":1,"x":32,"y":17},{"bin":1,"x":29,"y":18},{"bin":1,"x":30,"y":18},{"bin":1,"x":31,"y":18},{"bin":1,"x":32,"y":18},{"bin":1,"x":33,"y":17},{"bin":1,"x":34,"y":17},{"bin":1,"x":33,"y":18},{"bin":1,"x":34,"y":18},{"bin":1,"x":33,"y":19},{"bin":1,"x":34,"y":19},{"bin":1,"x":33,"y":20},{"bin":1,"x":34,"y":20},{"bin":1,"x":35,"y":20},{"bin":1,"x":29,"y":19},{"bin":1,"x":30,"y":19},{"bin":1,"x":31,"y":19},{"bin":1,"x":32,"y":19},{"bin":1,"x":29,"y":20},{"bin":1,"x":30,"y":20},{"bin":1,"x":31,"y":20},{"bin":1,"x":32,"y":20},{"bin":1,"x":25,"y":19},{"bin":1,"x":26,"y":19},{"bin":1,"x":27,"y":19},{"bin":1,"x":28,"y":19},{"bin":1,"x":25,"y":20},{"bin":1,"x":26,"y":20},{"bin":1,"x":27,"y":20},{"bin":1,"x":28,"y":20},{"bin":1,"x":21,"y":19},{"bin":1,"x":22,"y":19},{"bin":1,"x":23,"y":19},{"bin":1,"x":24,"y":19},{"bin":1,"x":21,"y":20},{"bin":1,"x":22,"y":20},{"bin":1,"x":23,"y":20},{"bin":1,"x":24,"y":20},{"bin":1,"x":17,"y":19},{"bin":1,"x":18,"y":19},{"bin":1,"x":19,"y":19},{"bin":1,"x":20,"y":19},{"bin":1,"x":17,"y":20},{"bin":1,"x":18,"y":20},{"bin":1,"x":19,"y":20},{"bin":1,"x":20,"y":20},{"bin":1,"x":13,"y":19},{"bin":1,"x":14,"y":19},{"bin":1,"x":15,"y":19},{"bin":1,"x":16,"y":19},{"bin":1,"x":13,"y":20},{"bin":1,"x":14,"y":20},{"bin":1,"x":15,"y":20},{"bin":1,"x":16,"y":20},{"bin":1,"x":9,"y":19},{"bin":1,"x":10,"y":19},{"bin":1,"x":11,"y":19},{"bin":1,"x":12,"y":19},{"bin":1,"x":9,"y":20},{"bin":1,"x":10,"y":20},{"bin":1,"x":11,"y":20},{"bin":1,"x":12,"y":20},{"bin":1,"x":7,"y":19},{"bin":1,"x":8,"y":19},{"bin":1,"x":6,"y":20},{"bin":1,"x":7,"y":20},{"bin":1,"x":8,"y":20},{"bin":1,"x":6,"y":21},{"bin":1,"x":7,"y":21},{"bin":1,"x":8,"y":21},{"bin":1,"x":7,"y":22},{"bin":1,"x":8,"y":22},{"bin":1,"x":9,"y":21},{"bin":1,"x":10,"y":21},{"bin":1,"x":11,"y":21},{"bin":1,"x":12,"y":21},{"bin":1,"x":9,"y":22},{"bin":1,"x":10,"y":22},{"bin":1,"x":11,"y":22},{"bin":1,"x":12,"y":22},{"bin":1,"x":13,"y":21},{"bin":1,"x":14,"y":21},{"bin":9,"x":15,"y":21},{"bin":1,"x":16,"y":21},{"bin":1,"x":13,"y":22},{"bin":1,"x":14,"y":22},{"bin":1,"x":15,"y":22},{"bin":1,"x":16,"y":22},{"bin":1,"x":17,"y":21},{"bin":1,"x":18,"y":21},{"bin":1,"x":19,"y":21},{"bin":1,"x":20,"y":21},{"bin":1,"x":17,"y":22},{"bin":1,"x":18,"y":22},{"bin":1,"x":19,"y":22},{"bin":1,"x":20,"y":22},{"bin":1,"x":21,"y":21},{"bin":1,"x":22,"y":21},{"bin":1,"x":23,"y":21},{"bin":1,"x":24,"y":21},{"bin":1,"x":21,"y":22},{"bin":1,"x":22,"y":22},{"bin":1,"x":23,"y":22},{"bin":1,"x":24,"y":22},{"bin":1,"x":25,"y":21},{"bin":1,"x":26,"y":21},{"bin":1,"x":27,"y":21},{"bin":9,"x":28,"y":21},{"bin":1,"x":25,"y":22},{"bin":1,"x":26,"y":22},{"bin":1,"x":27,"y":22},{"bin":1,"x":28,"y":22},{"bin":1,"x":29,"y":21},{"bin":1,"x":30,"y":21},{"bin":1,"x":31,"y":21},{"bin":1,"x":32,"y":21},{"bin":1,"x":29,"y":22},{"bin":1,"x":30,"y":22},{"bin":1,"x":31,"y":22},{"bin":1,"x":32,"y":22},{"bin":1,"x":33,"y":21},{"bin":1,"x":34,"y":21},{"bin":1,"x":35,"y":21},{"bin":1,"x":33,"y":22},{"bin":1,"x":34,"y":22},{"bin":1,"x":33,"y":23},{"bin":1,"x":34,"y":23},{"bin":1,"x":33,"y":24},{"bin":1,"x":34,"y":24},{"bin":1,"x":29,"y":23},{"bin":1,"x":30,"y":23},{"bin":1,"x":31,"y":23},{"bin":1,"x":32,"y":23},{"bin":1,"x":29,"y":24},{"bin":1,"x":30,"y":24},{"bin":1,"x":31,"y":24},{"bin":1,"x":32,"y":24},{"bin":1,"x":25,"y":23},{"bin":1,"x":26,"y":23},{"bin":1,"x":27,"y":23},{"bin":1,"x":28,"y":23},{"bin":1,"x":25,"y":24},{"bin":1,"x":26,"y":24},{"bin":1,"x":27,"y":24},{"bin":1,"x":28,"y":24},{"bin":1,"x":21,"y":23},{"bin":1,"x":22,"y":23},{"bin":1,"x":23,"y":23},{"bin":1,"x":24,"y":23},{"bin":1,"x":21,"y":24},{"bin":1,"x":22,"y":24},{"bin":1,"x":23,"y":24},{"bin":1,"x":24,"y":24},{"bin":1,"x":17,"y":23},{"bin":1,"x":18,"y":23},{"bin":1,"x":19,"y":23},{"bin":1,"x":20,"y":23},{"bin":1,"x":17,"y":24},{"bin":1,"x":18,"y":24},{"bin":1,"x":19,"y":24},{"bin":1,"x":20,"y":24},{"bin":1,"x":13,"y":23},{"bin":1,"x":14,"y":23},{"bin":1,"x":15,"y":23},{"bin":1,"x":16,"y":23},{"bin":1,"x":13,"y":24},{"bin":1,"x":14,"y":24},{"bin":1,"x":15,"y":24},{"bin":1,"x":16,"y":24},{"bin":1,"x":9,"y":23},{"bin":1,"x":10,"y":23},{"bin":1,"x":11,"y":23},{"bin":1,"x":12,"y":23},{"bin":1,"x":9,"y":24},{"bin":1,"x":10,"y":24},{"bin":1,"x":11,"y":24},{"bin":1,"x":12,"y":24},{"bin":1,"x":7,"y":23},{"bin":1,"x":8,"y":23},{"bin":1,"x":7,"y":24},{"bin":1,"x":8,"y":24},{"bin":1,"x":7,"y":25},{"bin":1,"x":8,"y":25},{"bin":1,"x":9,"y":25},{"bin":1,"x":10,"y":25},{"bin":1,"x":8,"y":26},{"bin":1,"x":9,"y":26},{"bin":1,"x":10,"y":26},{"bin":1,"x":11,"y":25},{"bin":1,"x":12,"y":25},{"bin":1,"x":13,"y":25},{"bin":1,"x":14,"y":25},{"bin":1,"x":11,"y":26},{"bin":1,"x":12,"y":26},{"bin":1,"x":13,"y":26},{"bin":1,"x":14,"y":26},{"bin":1,"x":15,"y":25},{"bin":1,"x":16,"y":25},{"bin":1,"x":17,"y":25},{"bin":1,"x":18,"y":25},{"bin":1,"x":15,"y":26},{"bin":1,"x":16,"y":26},{"bin":1,"x":17,"y":26},{"bin":1,"x":18,"y":26},{"bin":1,"x":19,"y":25},{"bin":1,"x":20,"y":25},{"bin":1,"x":21,"y":25},{"bin":1,"x":22,"y":25},{"bin":23,"x":19,"y":26},{"bin":1,"x":20,"y":26},{"bin":1,"x":21,"y":26},{"bin":1,"x":22,"y":26},{"bin":1,"x":23,"y":25},{"bin":1,"x":24,"y":25},{"bin":1,"x":25,"y":25},{"bin":1,"x":26,"y":25},{"bin":1,"x":23,"y":26},{"bin":1,"x":24,"y":26},{"bin":1,"x":25,"y":26},{"bin":1,"x":26,"y":26},{"bin":1,"x":27,"y":25},{"bin":1,"x":28,"y":25},{"bin":1,"x":29,"y":25},{"bin":1,"x":30,"y":25},{"bin":1,"x":27,"y":26},{"bin":1,"x":28,"y":26},{"bin":1,"x":29,"y":26},{"bin":1,"x":30,"y":26},{"bin":1,"x":31,"y":25},{"bin":1,"x":32,"y":25},{"bin":1,"x":33,"y":25},{"bin":1,"x":34,"y":25},{"bin":1,"x":31,"y":26},{"bin":1,"x":32,"y":26},{"bin":1,"x":33,"y":26},{"bin":9,"x":31,"y":27},{"bin":1,"x":32,"y":27},{"bin":1,"x":33,"y":27},{"bin":1,"x":31,"y":28},{"bin":1,"x":32,"y":28},{"bin":1,"x":27,"y":27},{"bin":1,"x":28,"y":27},{"bin":1,"x":29,"y":27},{"bin":1,"x":30,"y":27},{"bin":1,"x":27,"y":28},{"bin":9,"x":28,"y":28},{"bin":1,"x":29,"y":28},{"bin":1,"x":30,"y":28},{"bin":1,"x":23,"y":27},{"bin":1,"x":24,"y":27},{"bin":1,"x":25,"y":27},{"bin":1,"x":26,"y":27},{"bin":1,"x":23,"y":28},{"bin":1,"x":24,"y":28},{"bin":1,"x":25,"y":28},{"bin":1,"x":26,"y":28},{"bin":1,"x":19,"y":27},{"bin":1,"x":20,"y":27},{"bin":1,"x":21,"y":27},{"bin":1,"x":22,"y":27},{"bin":1,"x":19,"y":28},{"bin":1,"x":20,"y":28},{"bin":9,"x":21,"y":28},{"bin":1,"x":22,"y":28},{"bin":1,"x":15,"y":27},{"bin":1,"x":16,"y":27},{"bin":1,"x":17,"y":27},{"bin":1,"x":18,"y":27},{"bin":1,"x":15,"y":28},{"bin":1,"x":16,"y":28},{"bin":1,"x":17,"y":28},{"bin":1,"x":18,"y":28},{"bin":1,"x":11,"y":27},{"bin":1,"x":12,"y":27},{"bin":1,"x":13,"y":27},{"bin":1,"x":14,"y":27},{"bin":1,"x":11,"y":28},{"bin":1,"x":12,"y":28},{"bin":1,"x":13,"y":28},{"bin":1,"x":14,"y":28},{"bin":24,"x":8,"y":27},{"bin":1,"x":9,"y":27},{"bin":1,"x":10,"y":27},{"bin":1,"x":9,"y":28},{"bin":1,"x":10,"y":28},{"bin":1,"x":9,"y":29},{"bin":1,"x":10,"y":29},{"bin":1,"x":11,"y":29},{"bin":1,"x":12,"y":29},{"bin":1,"x":10,"y":30},{"bin":1,"x":11,"y":30},{"bin":1,"x":12,"y":30},{"bin":1,"x":13,"y":29},{"bin":1,"x":14,"y":29},{"bin":1,"x":15,"y":29},{"bin":1,"x":16,"y":29},{"bin":23,"x":13,"y":30},{"bin":1,"x":14,"y":30},{"bin":1,"x":15,"y":30},{"bin":1,"x":16,"y":30},{"bin":1,"x":17,"y":29},{"bin":1,"x":18,"y":29},{"bin":1,"x":19,"y":29},{"bin":1,"x":20,"y":29},{"bin":1,"x":17,"y":30},{"bin":1,"x":18,"y":30},{"bin":1,"x":19,"y":30},{"bin":1,"x":20,"y":30},{"bin":1,"x":21,"y":29},{"bin":1,"x":22,"y":29},{"bin":1,"x":23,"y":29},{"bin":1,"x":24,"y":29},{"bin":1,"x":21,"y":30},{"bin":1,"x":22,"y":30},{"bin":1,"x":23,"y":30},{"bin":1,"x":24,"y":30},{"bin":1,"x":25,"y":29},{"bin":1,"x":26,"y":29},{"bin":1,"x":27,"y":29},{"bin":1,"x":28,"y":29},{"bin":1,"x":25,"y":30},{"bin":1,"x":26,"y":30},{"bin":1,"x":27,"y":30},{"bin":1,"x":28,"y":30},{"bin":1,"x":29,"y":29},{"bin":1,"x":30,"y":29},{"bin":1,"x":31,"y":29},{"bin":1,"x":32,"y":29},{"bin":1,"x":29,"y":30},{"bin":1,"x":30,"y":30},{"bin":1,"x":31,"y":30},{"bin":1,"x":27,"y":31},{"bin":1,"x":28,"y":31},{"bin":1,"x":29,"y":31},{"bin":1,"x":30,"y":31},{"bin":1,"x":27,"y":32},{"bin":1,"x":28,"y":32},{"bin":1,"x":29,"y":32},{"bin":9,"x":23,"y":31},{"bin":1,"x":24,"y":31},{"bin":1,"x":25,"y":31},{"bin":1,"x":26,"y":31},{"bin":24,"x":23,"y":32},{"bin":1,"x":24,"y":32},{"bin":1,"x":25,"y":32},{"bin":1,"x":26,"y":32},{"bin":1,"x":19,"y":31},{"bin":1,"x":20,"y":31},{"bin":1,"x":21,"y":31},{"bin":1,"x":22,"y":31},{"bin":9,"x":19,"y":32},{"bin":1,"x":20,"y":32},{"bin":1,"x":21,"y":32},{"bin":1,"x":22,"y":32},{"bin":1,"x":15,"y":31},{"bin":1,"x":16,"y":31},{"bin":1,"x":17,"y":31},{"bin":1,"x":18,"y":31},{"bin":1,"x":15,"y":32},{"bin":1,"x":16,"y":32},{"bin":1,"x":17,"y":32},{"bin":1,"x":18,"y":32},{"bin":1,"x":11,"y":31},{"bin":1,"x":12,"y":31},{"bin":1,"x":13,"y":31},{"bin":1,"x":14,"y":31},{"bin":1,"x":12,"y":32},{"bin":1,"x":13,"y":32},{"bin":1,"x":14,"y":32},{"bin":1,"x":14,"y":33},{"bin":1,"x":15,"y":33},{"bin":1,"x":16,"y":33},{"bin":1,"x":16,"y":34},{"bin":1,"x":17,"y":33},{"bin":1,"x":18,"y":33},{"bin":1,"x":19,"y":33},{"bin":1,"x":20,"y":33},{"bin":1,"x":17,"y":34},{"bin":1,"x":18,"y":34},{"bin":1,"x":19,"y":34},{"bin":1,"x":20,"y":34},{"bin":9,"x":21,"y":33},{"bin":1,"x":22,"y":33},{"bin":1,"x":23,"y":33},{"bin":1,"x":24,"y":33},{"bin":9,"x":21,"y":34},{"bin":1,"x":22,"y":34},{"bin":1,"x":23,"y":34},{"bin":1,"x":24,"y":34},{"bin":1,"x":25,"y":33},{"bin":1,"x":26,"y":33},{"bin":1,"x":27,"y":33},{"bin":1,"x":25,"y":34}]};
+
+// ── Generate ──
+btnGen.addEventListener('click', () => { if (parsedData) generate(parsedData); });
+
+function generate(data) {
+  const { waferId, dies } = data;
+  const xs=dies.map(d=>d.x), ys=dies.map(d=>d.y);
+  const xmin=Math.min(...xs), xmax=Math.max(...xs);
+  const ymin=Math.min(...ys), ymax=Math.max(...ys);
+  const colCnt=xmax-xmin+1, rowCnt=ymax-ymin+1;
+
+  const grid = {};
+  dies.forEach(d => { grid[`${d.x},${d.y}`] = d.bin; });
+
+  const binCounts = {};
+  dies.forEach(d => { binCounts[d.bin] = (binCounts[d.bin]||0)+1; });
+  const passCnt = binCounts[1]||0;
+
+  // Build txt
+  const dotRow = '.'.repeat(colCnt);
+  const mapRows = [dotRow];
+  for (let y=ymin; y<=ymax; y++) {
+    let row='';
+    for (let x=xmin; x<=xmax; x++) { const k=`${x},${y}`; row+=(k in grid)?String(grid[k]):'.'; }
+    mapRows.push(row);
+  }
+  mapRows.push(dotRow);
+
+  const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'/');
+  const lotMea  = waferId.replace(/-/,'.');
+  const headerLines = [
+    `ROUTST 0`,`VERSID 3.2`,`TIMEST ${dateStr}`,`MAPTYP e`,`DESIGN L9285S`,
+    `LOTMEA ${lotMea}`,`REFCNT 2`,`REFBIN X`,`REFTP1 m`,`REFPX1 37`,`REFPY1 22`,
+    `REFTP2 m`,`REFPX2 3`,`REFPY2 9`,`FFROT1 0`,`FNLOE1 0`,`ORLOE1 3`,
+    `ROWCNT ${rowCnt}`,`COLCNT ${colCnt}`,`WAFDIA 200`,`XDIES1 5.14`,`YDIES1 5.14`,
+    `PASBIN 1`,`SUMPAS ${passCnt}`,`COMPRE 1`,`"SKIPDI .,X "`,
+    `REMARK SPECIAL INKING`,`MAPID1 ${lotMea}`,
+  ];
+  const mapLines = mapRows.map((r,i)=>`MAP${String(i+1).padStart(3,'0')} ${r}`);
+  txtContent = [...headerLines, ...mapLines].join('\n') + '\n';
+
+  txtOut.textContent = txtContent;
+  updateInfo({ waferId, dies, binCounts, passCnt, rowCnt, colCnt });
+  updateLegend(binCounts, dies.length);
+  waferBadge.textContent = waferId;
+
+  // Auto cell size based on screen
+  const availW = mapContainer.clientWidth || window.innerWidth - 32;
+  cellSize = Math.max(6, Math.min(20, Math.floor(availW / (colCnt + 2))));
+  panX = 0; panY = 0;
+  drawMap();
+
+  btnDL.disabled   = false;
+  btnCopy.disabled = false;
+  setStatus(`✓ ${dies.length} dies · ${rowCnt}×${colCnt} · Yield ${((passCnt/dies.length)*100).toFixed(1)}%`, 'success');
+  showToast('✓ Map 產生完成');
+  switchPage(1);
+}
+
+// ── Draw ──
+function drawMap() {
+  if (!parsedData) return;
+  const { dies } = parsedData;
+  const xs=dies.map(d=>d.x), ys=dies.map(d=>d.y);
+  const xmin=Math.min(...xs), xmax=Math.max(...xs);
+  const ymin=Math.min(...ys), ymax=Math.max(...ys);
+  const cols=xmax-xmin+1, rows=ymax-ymin+1;
+  const pad = cellSize;
+
+  const W = cols*cellSize + pad*2;
+  const H = rows*cellSize + pad*2;
+
+  // Scale for high-DPI
+  const dpr = Math.min(window.devicePixelRatio||1, 2);
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.scale(dpr, dpr);
+
+  ctx.fillStyle = '#080c14';
+  ctx.fillRect(0,0,W,H);
+
+  // Wafer circle
+  const cx=W/2, cy=H/2, r=Math.min(W,H)/2-2;
+  ctx.strokeStyle='#2a3448'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.stroke();
+
+  const grid={};
+  dies.forEach(d=>{ grid[`${d.x},${d.y}`]=d.bin; });
+  const gap=Math.max(1,Math.floor(cellSize*0.08));
+  const radius=Math.max(1,Math.floor(cellSize*0.15));
+
+  for (let y=ymin; y<=ymax; y++) {
+    for (let x=xmin; x<=xmax; x++) {
+      const px=pad+(x-xmin)*cellSize, py=pad+(y-ymin)*cellSize;
+      const key=`${x},${y}`;
+      if (key in grid) {
+        const bin=grid[key];
+        ctx.fillStyle=binColor(bin);
+        rr(px+gap,py+gap,cellSize-gap*2,cellSize-gap*2,radius);
+        ctx.fill();
+        if (cellSize>=18 && bin!==1) {
+          ctx.fillStyle='rgba(0,0,0,0.75)';
+          ctx.font=`bold ${Math.floor(cellSize*0.45)}px JetBrains Mono,monospace`;
+          ctx.textAlign='center'; ctx.textBaseline='middle';
+          ctx.fillText(String(bin),px+cellSize/2,py+cellSize/2);
+        }
+      } else {
+        ctx.fillStyle='#1a2030';
+        rr(px+gap,py+gap,cellSize-gap*2,cellSize-gap*2,radius);
+        ctx.fill();
+      }
+    }
+  }
+}
+
+function rr(x,y,w,h,r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath();
+}
+
+// ── Zoom buttons ──
+document.getElementById('zoom-in').addEventListener('click', () => { cellSize=Math.min(32,cellSize+2); drawMap(); });
+document.getElementById('zoom-out').addEventListener('click', () => { cellSize=Math.max(4,cellSize-2); drawMap(); });
+document.getElementById('zoom-fit').addEventListener('click', () => {
+  if (!parsedData) return;
+  const dies=parsedData.dies;
+  const xs=dies.map(d=>d.x), ys=dies.map(d=>d.y);
+  const colCnt=Math.max(...xs)-Math.min(...xs)+1;
+  const availW=mapContainer.clientWidth||window.innerWidth-32;
+  cellSize=Math.max(6,Math.min(20,Math.floor(availW/(colCnt+2))));
+  panX=0; panY=0; drawMap();
+});
+
+// ── Touch: pinch-to-zoom + pan ──
+let lastTouchDist=0, lastTouchX=0, lastTouchY=0, touching=false, pinching=false;
+
+mapContainer.addEventListener('touchstart', e => {
+  touching=true;
+  if (e.touches.length===2) {
+    pinching=true;
+    lastTouchDist=getTouchDist(e.touches);
+  } else if (e.touches.length===1) {
+    pinching=false;
+    lastTouchX=e.touches[0].clientX;
+    lastTouchY=e.touches[0].clientY;
+  }
+}, {passive:true});
+
+mapContainer.addEventListener('touchmove', e => {
+  if (!touching) return;
+  if (e.touches.length===2 && pinching) {
+    const dist=getTouchDist(e.touches);
+    const ratio=dist/lastTouchDist;
+    if (ratio>1.06) { cellSize=Math.min(32,cellSize+2); drawMap(); lastTouchDist=dist; }
+    else if (ratio<0.94) { cellSize=Math.max(4,cellSize-2); drawMap(); lastTouchDist=dist; }
+  } else if (e.touches.length===1 && !pinching) {
+    const dx=e.touches[0].clientX-lastTouchX;
+    const dy=e.touches[0].clientY-lastTouchY;
+    panX+=dx; panY+=dy;
+    canvas.style.transform=`translate(${panX}px,${panY}px)`;
+    lastTouchX=e.touches[0].clientX;
+    lastTouchY=e.touches[0].clientY;
+  }
+}, {passive:true});
+
+mapContainer.addEventListener('touchend', e => {
+  if (e.touches.length===0) { touching=false; pinching=false; }
+});
+
+function getTouchDist(touches) {
+  const dx=touches[0].clientX-touches[1].clientX;
+  const dy=touches[0].clientY-touches[1].clientY;
+  return Math.sqrt(dx*dx+dy*dy);
+}
+
+// Mouse pan (desktop)
+let mouseDown=false, mouseX=0, mouseY=0;
+mapContainer.addEventListener('mousedown', e => { mouseDown=true; mouseX=e.clientX; mouseY=e.clientY; });
+document.addEventListener('mousemove', e => {
+  if (!mouseDown) return;
+  panX+=e.clientX-mouseX; panY+=e.clientY-mouseY;
+  canvas.style.transform=`translate(${panX}px,${panY}px)`;
+  mouseX=e.clientX; mouseY=e.clientY;
+});
+document.addEventListener('mouseup', () => { mouseDown=false; });
+mapContainer.addEventListener('wheel', e => {
+  e.preventDefault();
+  if (e.deltaY<0) { cellSize=Math.min(32,cellSize+2); } else { cellSize=Math.max(4,cellSize-2); }
+  drawMap();
+}, {passive:false});
+
+// ── Info panel ──
+function updateInfo({ waferId, dies, binCounts, passCnt, rowCnt, colCnt }) {
+  const total=dies.length;
+  const yieldPct=total?((passCnt/total)*100).toFixed(1):'0.0';
+  infoGrid.innerHTML = `
+    <div class="info-card wide"><div class="lbl">Wafer ID</div><div class="val" style="font-size:16px">${waferId}</div></div>
+    <div class="info-card"><div class="lbl">Total Dies</div><div class="val">${total}</div></div>
+    <div class="info-card"><div class="lbl">Pass (Bin 1)</div><div class="val accent">${passCnt}</div></div>
+    <div class="info-card"><div class="lbl">Yield</div><div class="val accent">${yieldPct}%</div></div>
+    <div class="info-card"><div class="lbl">Grid</div><div class="val" style="font-size:16px">${rowCnt}×${colCnt}</div></div>
+  `;
+}
+
+function updateLegend(binCounts, total) {
+  const bins=Object.keys(binCounts).map(Number).sort((a,b)=>a-b);
+  legendList.innerHTML=bins.map(b=>{
+    const cnt=binCounts[b], pct=((cnt/total)*100).toFixed(1);
+    return `<div class="legend-item">
+      <div class="legend-swatch" style="background:${binColor(b)}"></div>
+      <span class="legend-name">${BIN_LABELS[b]||'Bin '+b}</span>
+      <span class="legend-cnt">${cnt}</span>
+      <span class="legend-pct">${pct}%</span>
+    </div>`;
+  }).join('');
+}
+
+// ── Download ──
+btnDL.addEventListener('click', () => {
+  if (!txtContent) return;
+  const wid=(parsedData?.waferId||'wafer').replace(/[^\w.-]/g,'_');
+  const blob=new Blob([txtContent],{type:'text/plain'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=`${wid}.txt`; a.click();
+  showToast('✓ 下載中…');
+});
+
+// ── Copy ──
+btnCopy.addEventListener('click', async () => {
+  if (!txtContent) return;
+  try {
+    await navigator.clipboard.writeText(txtContent);
+    showToast('✓ 已複製到剪貼簿');
+  } catch {
+    showToast('無法複製，請手動選取');
+  }
+});
+
+// ── Auto-load embedded wafer CP log on startup ──
+window.addEventListener('DOMContentLoaded', () => {
+  parsedData = EMBEDDED_DATA;
+  fnameEl.textContent = '📄 ' + EMBEDDED_DATA.waferId + ' (內建資料)';
+  fnameEl.style.display = 'block';
+  setStatus(`✓ 已載入內建 CP log： ${EMBEDDED_DATA.dies.length} 個 die`, 'success');
+  btnGen.disabled = false;
+  generate(EMBEDDED_DATA);
+});
+</script>
+</body>
+</html>
